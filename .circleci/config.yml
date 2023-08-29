@@ -1,21 +1,51 @@
-# This config is equivalent to both the '.circleci/extended/orb-free.yml' and the base '.circleci/config.yml'
 version: 2.1
-
-# Orbs are reusable packages of CircleCI configuration that you may share across projects, enabling you to create encapsulated, parameterized commands, jobs, and executors that can be used across multiple projects.
-# See: https://circleci.com/docs/orb-intro/
-orbs:
-  node: circleci/node@4.7
-
-# Invoke jobs via workflows
-# See: https://circleci.com/docs/configuration-reference/#workflows
+commands:
+  install-vault:
+    steps:
+      - run:
+          name: Install Vault and prereqs
+          command: |
+            vault -h && exit 0 || echo "Installing vault"
+            # only runs if vault command above fails
+            cd /tmp
+            wget https://releases.hashicorp.com/vault/1.14.1/vault_1.14.1_linux_amd64.zip
+            unzip vault_1.14.1_linux_amd64.zip
+            sudo mv vault /usr/local/bin
+            vault -h
+  vault-auto-auth:
+    description: "Use Vault auto auth to load secrets"
+    steps:
+      - run:
+          name: Auto-authenticate with Vault
+          command: |
+            # Write the CircleCI provided value to a file read by Vault
+            echo $CIRCLE_OIDC_TOKEN > .circleci/vault/token.json
+            # Substitute the env vars in our context to render the Vault config file
+            sudo apt update && sudo apt install gettext-base
+            envsubst < .circleci/vault/agent.hcl.tpl > .circleci/vault/agent.hcl
+            # This config indicates which secrets to collect and how to authenticate
+            vault agent -config=.circleci/vault/agent.hcl
+      - run:
+          name: Set Environment Variables from Vault
+          command: |
+            # In order to properly expose values in Environment, we _source_ the shell values written by agent
+            source .circleci/vault/setenv
+jobs:
+  setup-vault-and-load-secrets:
+    docker:
+      - image: cimg/base:2023.01
+    steps:
+      - checkout
+      - install-vault
+      - vault-auto-auth
+      - run:
+          name: Use secrets retrieved from Vault in a subsequent step
+          command: |
+            echo "Username is $SECRET_DEMO_USERNAME, password is $SECRET_DEMO_PASSWORD"
 workflows:
-  sample: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  vault:
     jobs:
-      - node/test:
-          # This is the node version to use for the `cimg/node` tag
-          # Relevant tags can be found on the CircleCI Developer Hub
-          # https://circleci.com/developer/images/image/cimg/node
-          version: '16.10'
-          # If you are using yarn, change the line below from "npm" to "yarn"
-          pkg-manager: npm
+      - setup-vault-and-load-secrets:
+          context:
+            - circleci-vault-demo
+# VS Code Extension Version: 1.5.1
