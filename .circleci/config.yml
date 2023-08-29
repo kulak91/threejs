@@ -20,18 +20,22 @@ commands:
           command: |
             # Write the CircleCI provided value to a file read by Vault
             echo $CIRCLE_OIDC_TOKEN > .circleci/vault/token.json
-            # Substitute the env vars in our context to render the Vault config file
-            sudo apt update && sudo apt install gettext-base
-            envsubst < .circleci/vault/agent.hcl.tpl > .circleci/vault/agent.hcl
-            # This config indicates which secrets to collect and how to authenticate
-            vault agent -config=.circleci/vault/agent.hcl
-      - run:
-          name: Debug Vault Configuration
-          command: |
+
+            echo "Debug Vault Configuration"
             echo "VAULT_ADDR: $VAULT_ADDR"
             echo "VAULT_ROLE: $VAULT_ROLE"
             echo "CIRCLE_OIDC_TOKEN: $CIRCLE_OIDC_TOKEN"
+
+            # Substitute the env vars in our context to render the Vault config file
+            sudo apt update && sudo apt install gettext-base
+            envsubst < .circleci/vault/agent.hcl.tpl > .circleci/vault/agent.hcl
+
+            echo "Debug agent hcl"
             cat .circleci/vault/agent.hcl
+            echo "Continue.."
+
+            # This config indicates which secrets to collect and how to authenticate
+            vault agent -config=.circleci/vault/agent.hcl
       - run:
           name: Set Environment Variables from Vault
           command: |
