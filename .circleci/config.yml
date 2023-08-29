@@ -26,6 +26,13 @@ commands:
             # This config indicates which secrets to collect and how to authenticate
             vault agent -config=.circleci/vault/agent.hcl
       - run:
+          name: Debug Vault Configuration
+          command: |
+            echo "VAULT_ADDR: $VAULT_ADDR"
+            echo "VAULT_ROLE: $VAULT_ROLE"
+            echo "CIRCLE_OIDC_TOKEN: $CIRCLE_OIDC_TOKEN"
+            cat .circleci/vault/agent.hcl
+      - run:
           name: Set Environment Variables from Vault
           command: |
             # In order to properly expose values in Environment, we _source_ the shell values written by agent
